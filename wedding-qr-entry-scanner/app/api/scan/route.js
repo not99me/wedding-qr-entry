@@ -1,41 +1,31 @@
 import { NextResponse } from "next/server";
-import { getRedis } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
 const VALID_CODE = "WEDDING-2026-FN";
-const USED_KEY = "wedding:fn:used";
+
+let used = false;
 
 export async function POST(request) {
   try {
     const body = await request.json();
 
-    const scannedCode =
+    const code =
       typeof body?.code === "string"
         ? body.code.trim()
         : "";
 
-    console.log("SCANNED CODE:", JSON.stringify(scannedCode));
-    console.log("EXPECTED CODE:", JSON.stringify(VALID_CODE));
+    console.log("QR CODE:", JSON.stringify(code));
 
-    if (scannedCode !== VALID_CODE) {
+    if (code !== VALID_CODE) {
       return NextResponse.json({
         result: "INVALID",
-        scanned: scannedCode,
       });
     }
 
-    const redis = getRedis();
+    if (!used) {
+      used = true;
 
-    const firstScan = await redis.set(
-      USED_KEY,
-      "true",
-      {
-        nx: true,
-      }
-    );
-
-    if (firstScan === "OK") {
       return NextResponse.json({
         result: "GRANTED",
       });
