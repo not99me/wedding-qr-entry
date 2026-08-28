@@ -3,25 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./guard.module.css";
 
-const WEDDING_CODE = "WEDDING-2026-FN";
-
 export default function GuardPage() {
   const [state, setState] = useState("idle");
   const [lastCode, setLastCode] = useState("");
   const [errorDetail, setErrorDetail] = useState("");
   const scannerRef = useRef(null);
-  const containerId = "qr-reader";
   const busyRef = useRef(false);
 
   const stopScanner = useCallback(async () => {
-    const scanner = scannerRef.current;
-
-    if (scanner) {
+    if (scannerRef.current) {
       try {
-        await scanner.stop();
-      } catch {
-        // Already stopped.
-      }
+        await scannerRef.current.stop();
+      } catch {}
     }
   }, []);
 
@@ -31,7 +24,7 @@ export default function GuardPage() {
 
       busyRef.current = true;
 
-      const code = WEDDING_CODE;
+      const code = "WEDDING-2026-FN";
 
       setLastCode(code);
       setState("checking");
@@ -57,7 +50,7 @@ export default function GuardPage() {
           setState("denied");
         }
       } catch {
-        setErrorDetail("Could not reach the server. Check your connection.");
+        setErrorDetail("Could not reach the server.");
         setState("denied");
       }
     },
@@ -72,42 +65,25 @@ export default function GuardPage() {
       const { Html5Qrcode } = await import("html5-qrcode");
 
       if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode(containerId, {
-          verbose: false,
-        });
+        scannerRef.current = new Html5Qrcode("qr-reader");
       }
 
-      const scanner = scannerRef.current;
-
-      await scanner.start(
+      await scannerRef.current.start(
         { facingMode: "environment" },
         {
           fps: 10,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const size = Math.floor(
-              Math.min(viewfinderWidth, viewfinderHeight) * 0.7
-            );
-
-            return {
-              width: size,
-              height: size,
-            };
-          },
+          qrbox: 250,
         },
         () => {
           handleDecoded();
         },
-        () => {
-          // No QR found in this frame.
-        }
+        () => {}
       );
 
       busyRef.current = false;
       setState("scanning");
     } catch (err) {
-      setErrorDetail(
-        err?.message || "Camera access was blocked."
-      );
+      setErrorDetail(err?.message || "Camera access was blocked.");
       setState("camera_error");
     }
   }, [handleDecoded]);
@@ -116,10 +92,8 @@ export default function GuardPage() {
     startScanner();
 
     return () => {
-      const scanner = scannerRef.current;
-
-      if (scanner) {
-        scanner.stop().catch(() => {});
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
       }
     };
   }, [startScanner]);
@@ -161,11 +135,7 @@ export default function GuardPage() {
         tone="denied"
         icon="cross"
         heading="ACCESS DENIED"
-        sub={
-          errorDetail
-            ? errorDetail
-            : "INVALID CODE — DO NOT LET IN"
-        }
+        sub={errorDetail || "INVALID CODE — DO NOT LET IN"}
         code={lastCode}
         onNext={scanNext}
       />
@@ -182,8 +152,7 @@ export default function GuardPage() {
         </h1>
 
         <p className={styles.helpText}>
-          Please allow camera access in your browser settings,
-          then try again.
+          Please allow camera access, then try again.
         </p>
 
         {errorDetail && (
@@ -192,10 +161,7 @@ export default function GuardPage() {
           </p>
         )}
 
-        <button
-          className={styles.retryBtn}
-          onClick={scanNext}
-        >
+        <button className={styles.retryBtn} onClick={scanNext}>
           Try again
         </button>
       </main>
@@ -211,26 +177,12 @@ export default function GuardPage() {
       </h1>
 
       <div className={styles.scannerFrame}>
-        <div
-          id={containerId}
-          className={styles.scannerBox}
-        />
+        <div id="qr-reader" className={styles.scannerBox} />
 
-        <span
-          className={`${styles.corner} ${styles.tl}`}
-        />
-
-        <span
-          className={`${styles.corner} ${styles.tr}`}
-        />
-
-        <span
-          className={`${styles.corner} ${styles.bl}`}
-        />
-
-        <span
-          className={`${styles.corner} ${styles.br}`}
-        />
+        <span className={`${styles.corner} ${styles.tl}`} />
+        <span className={`${styles.corner} ${styles.tr}`} />
+        <span className={`${styles.corner} ${styles.bl}`} />
+        <span className={`${styles.corner} ${styles.br}`} />
 
         {state === "scanning" && (
           <span className={styles.scanLine} />
@@ -255,9 +207,7 @@ function ResultScreen({
   onNext,
 }) {
   return (
-    <main
-      className={`${styles.result} ${styles[tone]}`}
-    >
+    <main className={`${styles.result} ${styles[tone]}`}>
       <div className={styles.resultIcon}>
         {icon === "check"
           ? "✓"
@@ -270,175 +220,12 @@ function ResultScreen({
         {heading}
       </h1>
 
-      <p className={styles.resultSub}>
-        {sub}
-      </p>
+      <p className={styles.resultSub}>{sub}</p>
 
       {code && (
-        <p className={styles.resultCode}>
-          {code}
-        </p>
+        <p className={styles.resultCode}>{code}</p>
       )}
 
-      <button
-        className={styles.nextBtn}
-        onClick={onNext}
-      >
-        Scan next
-      </button>
-    </main>
-  );
-}    await stopScanner();
-
-    try {
-      const res = await fetch("/api/scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const data = await res.json();
-      if (data.result === "GRANTED") setState("granted");
-      else if (data.result === "ALREADY_USED") setState("already_used");
-      else setState("denied");
-    } catch {
-      setErrorDetail("Could not reach the server. Check your connection.");
-      setState("denied");
-    }
-  }, [stopScanner]);
-
-  const startScanner = useCallback(async () => {
-    setState("idle");
-    setErrorDetail("");
-    try {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode(containerId, {
-          verbose: false,
-        });
-      }
-      const scanner = scannerRef.current;
-      await scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const size = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
-            return { width: size, height: size };
-          },
-        },
-        (decodedText) => {
-          handleDecoded(decodedText);
-        },
-        () => {
-          // per-frame "no code found" callback — expected constantly, ignore
-        }
-      );
-      busyRef.current = false;
-      setState("scanning");
-    } catch (err) {
-      setErrorDetail(err?.message || "Camera access was blocked.");
-      setState("camera_error");
-    }
-  }, [handleDecoded]);
-
-  useEffect(() => {
-    startScanner();
-    return () => {
-      const scanner = scannerRef.current;
-      if (scanner) {
-        scanner.stop().catch(() => {});
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const scanNext = () => {
-    busyRef.current = false;
-    startScanner();
-  };
-
-  if (state === "granted") {
-    return (
-      <ResultScreen
-        tone="granted"
-        icon="check"
-        heading="ACCESS GRANTED"
-        sub="LET GUEST IN"
-        code={lastCode}
-        onNext={scanNext}
-      />
-    );
-  }
-
-  if (state === "already_used") {
-    return (
-      <ResultScreen
-        tone="caution"
-        icon="warn"
-        heading="ALREADY USED"
-        sub="DO NOT LET IN"
-        code={lastCode}
-        onNext={scanNext}
-      />
-    );
-  }
-
-  if (state === "denied") {
-    return (
-      <ResultScreen
-        tone="denied"
-        icon="cross"
-        heading="ACCESS DENIED"
-        sub={errorDetail ? errorDetail : "INVALID CODE — DO NOT LET IN"}
-        code={lastCode}
-        onNext={scanNext}
-      />
-    );
-  }
-
-  if (state === "camera_error") {
-    return (
-      <main className={styles.wrap}>
-        <p className={styles.eyebrow}>Wedding entry</p>
-        <h1 className={styles.title}>Camera access required</h1>
-        <p className={styles.helpText}>
-          Please allow camera access in your browser settings, then try
-          again.
-        </p>
-        {errorDetail && <p className={styles.errDetail}>{errorDetail}</p>}
-        <button className={styles.retryBtn} onClick={scanNext}>
-          Try again
-        </button>
-      </main>
-    );
-  }
-
-  return (
-    <main className={styles.wrap}>
-      <p className={styles.eyebrow}>Wedding entry</p>
-      <h1 className={styles.title}>Scan QR code</h1>
-      <div className={styles.scannerFrame}>
-        <div id={containerId} className={styles.scannerBox} />
-        <span className={`${styles.corner} ${styles.tl}`} />
-        <span className={`${styles.corner} ${styles.tr}`} />
-        <span className={`${styles.corner} ${styles.bl}`} />
-        <span className={`${styles.corner} ${styles.br}`} />
-        {state === "scanning" && <span className={styles.scanLine} />}
-      </div>
-      <p className={styles.helpText}>
-        {state === "checking" ? "Checking ticket…" : "Point the camera at the guest's ticket"}
-      </p>
-    </main>
-  );
-}
-
-function ResultScreen({ tone, icon, heading, sub, code, onNext }) {
-  return (
-    <main className={`${styles.result} ${styles[tone]}`}>
-      <div className={styles.resultIcon}>{icon === "check" ? "✓" : icon === "warn" ? "⚠" : "✕"}</div>
-      <h1 className={styles.resultHeading}>{heading}</h1>
-      <p className={styles.resultSub}>{sub}</p>
-      {code && <p className={styles.resultCode}>{code}</p>}
       <button className={styles.nextBtn} onClick={onNext}>
         Scan next
       </button>
