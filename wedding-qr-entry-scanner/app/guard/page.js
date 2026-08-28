@@ -1,196 +1,322 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
-const CODE = "WEDDING-2026-FN";
+import { useCallback, useEffect, useRef, useState } from "react";
+import styles from "./guard.module.css";
 
 export default function GuardPage() {
+  const [state, setState] = useState("idle");
+  const [lastCode, setLastCode] = useState("");
+  const [errorDetail, setErrorDetail] = useState("");
+
   const scannerRef = useRef(null);
   const busyRef = useRef(false);
 
-  const [status, setStatus] = useState("starting");
-  const [message, setMessage] = useState("");
+  const stopScanner = useCallback(async () => {
+    const scanner = scannerRef.current;
 
-  useEffect(() => {
-    let active = true;
+    if (!scanner) return;
 
-    async function startScanner() {
-      try {
-        const { Html5Qrcode } = await import("html5-qrcode");
-
-        if (!active) return;
-
-        const scanner = new Html5Qrcode("qr-reader");
-        scannerRef.current = scanner;
-
-        await scanner.start(
-          { facingMode: "environment" },
-          {
-            fps: 10,
-            qrbox: 250,
-          },
-          async (decodedText) => {
-            if (!active || busyRef.current) return;
-
-            busyRef.current = true;
-
-            await scanner.stop().catch(() => {});
-
-            const scannedCode = decodedText.trim();
-
-            setStatus("checking");
-            setMessage(scannedCode);
-
-            try {
-              const response = await fetch("/api/scan", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  code: scannedCode,
-                }),
-              });
-
-              const data = await response.json();
-
-              if (data.result === "GRANTED") {
-                setStatus("granted");
-              } else if (data.result === "ALREADY_USED") {
-                setStatus("used");
-              } else {
-                setStatus("denied");
-              }
-            } catch (error) {
-              console.error(error);
-              setStatus("error");
-              setMessage("Could not connect to the server.");
-            }
-          },
-          () => {}
-        );
-
-        if (active) {
-          setStatus("scanning");
-        }
-      } catch (error) {
-        console.error(error);
-
-        if (active) {
-          setStatus("camera_error");
-          setMessage(error?.message || "Could not start camera.");
-        }
-      }
+    try {
+      await scanner.stop();
+    } catch {
+      // Scanner may already be stopped.
     }
-
-    startScanner();
-
-    return () => {
-      active = false;
-
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-      }
-    };
   }, []);
 
-  if (status === "granted") {
+  const handleDecoded = useCallback(
+    async (decodedText) => {
+      if (busyRef.current) return;
+
+      busyRef.current = true;
+
+      const code = decodedText.trim();
+
+      setLastCode(code);
+      setState("checking");
+
+      await stopScanner();
+
+      try {
+        const response = await fetch("/api/scan", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            code,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.result === "GRANTED") {
+          setState("granted");
+        } else if (data.result === "ALREADY_USED") {
+          setState("already_used");
+        } else {
+          setState("denied");
+        }
+      } catch (error) {
+        console.error("Scan error:", error);
+        setErrorDetail("Could not reach the server. Check your connection.");
+        setState("denied");
+      }
+    },
+    [stopScanner]
+  );
+
+  const startScanner = useCallback(async () => {
+    setState("idle");
+    setErrorDetail("");
+    setLastCode("");
+
+    try {
+      const { Html5Qrcode } = await import("html5-qrcode");
+
+      const element = document.getElementById("qr-reader");
+
+      if (!element) {
+        throw new Error("QR scanner element was not found.");
+      }
+
+      if (scannerRef.current) {
+        try {
+          await scannerRef.current.stop();
+        } catch {
+          // Ignore if already stopped.
+        }
+
+        scannerRef.current = null;
+      }
+
+      const scanner = new Html5Qrcode("qr-reader", {
+        verbose: false,
+      });
+
+      scannerRef.current = scanner;
+
+      await scanner.start(
+        {
+          facingMode: "environment",
+        },
+        {
+          fps: 10,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const size = Math.floor(
+              Math.min(viewfinderWidth, viewfinderHeight) * 0.7
+            );
+
+            return {
+              width: size,
+              height: size,
+            };
+          },
+        },
+        (decodedText) => {
+          handleDecoded(decodedText);
+        },
+        () => {
+          // No QR detected in this frame.
+        }
+      );
+
+      busyRef.current = false;
+      setState("scanning");
+    } catch (error) {
+      console.error("Camera error:", error);
+
+      setErrorDetail(
+        error?.message || "Camera access was blocked or unavailable."
+      );
+
+      setState("camera_error");
+    }
+  }, [handleDecoded]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startScanner();
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+
+      const scanner = scannerRef.current;
+
+      if (scanner) {
+        scanner.stop().catch(() => {});
+      }
+    };
+  }, [startScanner]);
+
+  const scanNext = async () => {
+    busyRef.current = false;
+    setState("idle");
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    startScanner();
+  };
+
+  if (state === "granted") {
     return (
-      <main style={screenStyle("#0a7a35")}>
-        <div style={iconStyle}>✓</div>
-        <h1>ACCESS GRANTED</h1>
-        <p>LET GUEST IN</p>
-      </main>
+      <ResultScreen
+        tone="granted"
+        icon="check"
+        heading="ACCESS GRANTED"
+        sub="LET GUEST IN"
+        code={lastCode}
+        onNext={scanNext}
+      />
     );
   }
 
-  if (status === "used") {
+  if (state === "already_used") {
     return (
-      <main style={screenStyle("#b36b00")}>
-        <div style={iconStyle}>⚠</div>
-        <h1>ALREADY USED</h1>
-        <p>DO NOT LET IN</p>
-      </main>
+      <ResultScreen
+        tone="caution"
+        icon="warn"
+        heading="ALREADY USED"
+        sub="DO NOT LET IN"
+        code={lastCode}
+        onNext={scanNext}
+      />
     );
   }
 
-  if (status === "denied") {
+  if (state === "denied") {
     return (
-      <main style={screenStyle("#b00020")}>
-        <div style={iconStyle}>✕</div>
-        <h1>ACCESS DENIED</h1>
-        <p>INVALID CODE — DO NOT LET IN</p>
-      </main>
+      <ResultScreen
+        tone="denied"
+        icon="cross"
+        heading="ACCESS DENIED"
+        sub={
+          errorDetail
+            ? errorDetail
+            : "INVALID CODE — DO NOT LET IN"
+        }
+        code={lastCode}
+        onNext={scanNext}
+      />
     );
   }
 
-  if (status === "error") {
+  if (state === "camera_error") {
     return (
-      <main style={screenStyle("#b00020")}>
-        <div style={iconStyle}>✕</div>
-        <h1>ERROR</h1>
-        <p>{message}</p>
-      </main>
-    );
-  }
+      <main className={styles.wrap}>
+        <p className={styles.eyebrow}>Wedding entry</p>
 
-  if (status === "camera_error") {
-    return (
-      <main style={basicStyle}>
-        <h1>Camera Error</h1>
-        <p>{message}</p>
-        <p>Please allow camera access and reload the page.</p>
+        <h1 className={styles.title}>
+          Camera access required
+        </h1>
+
+        <p className={styles.helpText}>
+          Please allow camera access in your browser settings,
+          then try again.
+        </p>
+
+        {errorDetail && (
+          <p className={styles.errDetail}>
+            {errorDetail}
+          </p>
+        )}
+
+        <button
+          className={styles.retryBtn}
+          onClick={scanNext}
+        >
+          Try again
+        </button>
       </main>
     );
   }
 
   return (
-    <main style={basicStyle}>
-      <h1>Wedding Entry</h1>
-
-      <p>
-        {status === "checking"
-          ? "Checking ticket..."
-          : "Point the camera at the QR code"}
+    <main className={styles.wrap}>
+      <p className={styles.eyebrow}>
+        Wedding entry
       </p>
 
-      <div
-        id="qr-reader"
-        style={{
-          width: "100%",
-          maxWidth: "500px",
-          margin: "30px auto",
-        }}
-      />
+      <h1 className={styles.title}>
+        Scan QR code
+      </h1>
 
-      {message && <p>{message}</p>}
+      <div className={styles.scannerFrame}>
+        <div
+          id="qr-reader"
+          className={styles.scannerBox}
+        />
+
+        <span
+          className={`${styles.corner} ${styles.tl}`}
+        />
+
+        <span
+          className={`${styles.corner} ${styles.tr}`}
+        />
+
+        <span
+          className={`${styles.corner} ${styles.bl}`}
+        />
+
+        <span
+          className={`${styles.corner} ${styles.br}`}
+        />
+
+        {state === "scanning" && (
+          <span className={styles.scanLine} />
+        )}
+      </div>
+
+      <p className={styles.helpText}>
+        {state === "checking"
+          ? "Checking ticket…"
+          : "Point the camera at the guest's ticket"}
+      </p>
     </main>
   );
 }
 
-const basicStyle = {
-  minHeight: "100vh",
-  padding: "30px 20px",
-  textAlign: "center",
-  fontFamily: "Arial, sans-serif",
-};
+function ResultScreen({
+  tone,
+  icon,
+  heading,
+  sub,
+  code,
+  onNext,
+}) {
+  return (
+    <main
+      className={`${styles.result} ${styles[tone]}`}
+    >
+      <div className={styles.resultIcon}>
+        {icon === "check"
+          ? "✓"
+          : icon === "warn"
+          ? "⚠"
+          : "✕"}
+      </div>
 
-function screenStyle(background) {
-  return {
-    minHeight: "100vh",
-    background,
-    color: "white",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    textAlign: "center",
-    fontFamily: "Arial, sans-serif",
-    padding: "30px",
-  };
+      <h1 className={styles.resultHeading}>
+        {heading}
+      </h1>
+
+      <p className={styles.resultSub}>
+        {sub}
+      </p>
+
+      {code && (
+        <p className={styles.resultCode}>
+          {code}
+        </p>
+      )}
+
+      <button
+        className={styles.nextBtn}
+        onClick={onNext}
+      >
+        Scan next
+      </button>
+    </main>
+  );
 }
-
-const iconStyle = {
-  fontSize: "90px",
-  marginBottom: "20px",
-};
