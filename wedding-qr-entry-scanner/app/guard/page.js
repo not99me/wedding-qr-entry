@@ -1,21 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import styles from "./guard.module.css";
+
+const CODE = "WEDDING-2026-FN";
 
 export default function GuardPage() {
   const scannerRef = useRef(null);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState("");
+  const busyRef = useRef(false);
+
+  const [status, setStatus] = useState("starting");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
-    async function start() {
+    async function startScanner() {
       try {
         const { Html5Qrcode } = await import("html5-qrcode");
 
-        if (!mounted) return;
+        if (!active) return;
 
         const scanner = new Html5Qrcode("qr-reader");
         scannerRef.current = scanner;
@@ -27,9 +30,16 @@ export default function GuardPage() {
             qrbox: 250,
           },
           async (decodedText) => {
-            if (!mounted || result) return;
+            if (!active || busyRef.current) return;
 
-            await scanner.stop();
+            busyRef.current = true;
+
+            await scanner.stop().catch(() => {});
+
+            const scannedCode = decodedText.trim();
+
+            setStatus("checking");
+            setMessage(scannedCode);
 
             try {
               const response = await fetch("/api/scan", {
@@ -38,93 +48,149 @@ export default function GuardPage() {
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                  code: decodedText.trim(),
+                  code: scannedCode,
                 }),
               });
 
               const data = await response.json();
 
               if (data.result === "GRANTED") {
-                setResult("granted");
+                setStatus("granted");
               } else if (data.result === "ALREADY_USED") {
-                setResult("already_used");
+                setStatus("used");
               } else {
-                setResult("denied");
+                setStatus("denied");
               }
-            } catch {
-              setError("Could not contact the server.");
-              setResult("denied");
+            } catch (error) {
+              console.error(error);
+              setStatus("error");
+              setMessage("Could not connect to the server.");
             }
           },
           () => {}
         );
-      } catch (err) {
-        setError(err?.message || "Could not start camera.");
+
+        if (active) {
+          setStatus("scanning");
+        }
+      } catch (error) {
+        console.error(error);
+
+        if (active) {
+          setStatus("camera_error");
+          setMessage(error?.message || "Could not start camera.");
+        }
       }
     }
 
-    start();
+    startScanner();
 
     return () => {
-      mounted = false;
+      active = false;
 
       if (scannerRef.current) {
         scannerRef.current.stop().catch(() => {});
       }
     };
-  }, [result]);
+  }, []);
 
-  if (result === "granted") {
+  if (status === "granted") {
     return (
-      <main className={`${styles.result} ${styles.granted}`}>
-        <div className={styles.resultIcon}>✓</div>
-        <h1 className={styles.resultHeading}>ACCESS GRANTED</h1>
-        <p className={styles.resultSub}>LET GUEST IN</p>
+      <main style={screenStyle("#0a7a35")}>
+        <div style={iconStyle}>✓</div>
+        <h1>ACCESS GRANTED</h1>
+        <p>LET GUEST IN</p>
       </main>
     );
   }
 
-  if (result === "already_used") {
+  if (status === "used") {
     return (
-      <main className={`${styles.result} ${styles.caution}`}>
-        <div className={styles.resultIcon}>⚠</div>
-        <h1 className={styles.resultHeading}>ALREADY USED</h1>
-        <p className={styles.resultSub}>DO NOT LET IN</p>
+      <main style={screenStyle("#b36b00")}>
+        <div style={iconStyle}>⚠</div>
+        <h1>ALREADY USED</h1>
+        <p>DO NOT LET IN</p>
       </main>
     );
   }
 
-  if (result === "denied") {
+  if (status === "denied") {
     return (
-      <main className={`${styles.result} ${styles.denied}`}>
-        <div className={styles.resultIcon}>✕</div>
-        <h1 className={styles.resultHeading}>ACCESS DENIED</h1>
-        <p className={styles.resultSub}>
-          {error || "INVALID CODE — DO NOT LET IN"}
-        </p>
+      <main style={screenStyle("#b00020")}>
+        <div style={iconStyle}>✕</div>
+        <h1>ACCESS DENIED</h1>
+        <p>INVALID CODE — DO NOT LET IN</p>
+      </main>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <main style={screenStyle("#b00020")}>
+        <div style={iconStyle}>✕</div>
+        <h1>ERROR</h1>
+        <p>{message}</p>
+      </main>
+    );
+  }
+
+  if (status === "camera_error") {
+    return (
+      <main style={basicStyle}>
+        <h1>Camera Error</h1>
+        <p>{message}</p>
+        <p>Please allow camera access and reload the page.</p>
       </main>
     );
   }
 
   return (
-    <main className={styles.wrap}>
-      <p className={styles.eyebrow}>Wedding entry</p>
+    <main style={basicStyle}>
+      <h1>Wedding Entry</h1>
 
-      <h1 className={styles.title}>Scan QR code</h1>
-
-      <div className={styles.scannerFrame}>
-        <div id="qr-reader" className={styles.scannerBox} />
-      </div>
-
-      {error && (
-        <p className={styles.errDetail}>
-          {error}
-        </p>
-      )}
-
-      <p className={styles.helpText}>
-        Point the camera at the guest's QR code
+      <p>
+        {status === "checking"
+          ? "Checking ticket..."
+          : "Point the camera at the QR code"}
       </p>
+
+      <div
+        id="qr-reader"
+        style={{
+          width: "100%",
+          maxWidth: "500px",
+          margin: "30px auto",
+        }}
+      />
+
+      {message && <p>{message}</p>}
     </main>
   );
 }
+
+const basicStyle = {
+  minHeight: "100vh",
+  padding: "30px 20px",
+  textAlign: "center",
+  fontFamily: "Arial, sans-serif",
+};
+
+function screenStyle(background) {
+  return {
+    minHeight: "100vh",
+    background,
+    color: "white",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    fontFamily: "Arial, sans-serif",
+    padding: "30px",
+  };
+}
+
+const iconStyle = {
+  fontSize: "90px",
+  marginBottom: "20px",
+};
