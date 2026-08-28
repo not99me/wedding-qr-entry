@@ -1,85 +1,60 @@
 import { NextResponse } from "next/server";
-import { getRedis, KEYS, HISTORY_MAX_LENGTH } from "@/lib/redis";
+import { getRedis } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
-const WEDDING_CODE = "WEDDING-2026-FN";
+const VALID_CODE = "WEDDING-2026-FN";
+const USED_KEY = "wedding:fn:used";
 
 export async function POST(request) {
   try {
-    const redis = getRedis();
-
-    // Make sure the one wedding code is registered.
-    await redis.sadd(KEYS.validCodes, WEDDING_CODE);
-
     const body = await request.json();
-    const code = typeof body?.code === "string" ? body.code.trim() : "";
 
-    if (code !== WEDDING_CODE) {
-      await redis.incr(KEYS.invalidCount);
+    const scannedCode =
+      typeof body?.code === "string"
+        ? body.code.trim()
+        : "";
 
+    console.log("SCANNED CODE:", JSON.stringify(scannedCode));
+    console.log("EXPECTED CODE:", JSON.stringify(VALID_CODE));
+
+    if (scannedCode !== VALID_CODE) {
       return NextResponse.json({
         result: "INVALID",
+        scanned: scannedCode,
       });
     }
 
-    // SADD returns 1 only the first time this code is used.
-    const firstScan = await redis.sadd(KEYS.usedCodes, WEDDING_CODE);
+    const redis = getRedis();
 
-    const now = new Date().toISOString();
+    const firstScan = await redis.set(
+      USED_KEY,
+      "true",
+      {
+        nx: true,
+      }
+    );
 
-    if (firstScan === 1) {
-      await redis.hset(KEYS.usedAt, {
-        [WEDDING_CODE]: now,
-      });
-
-      await redis.lpush(
-        KEYS.history,
-        JSON.stringify({
-          code: WEDDING_CODE,
-          result: "ACCEPTED",
-          time: now,
-        })
-      );
-
-      await redis.ltrim(
-        KEYS.history,
-        0,
-        HISTORY_MAX_LENGTH - 1
-      );
-
+    if (firstScan === "OK") {
       return NextResponse.json({
         result: "GRANTED",
       });
     }
 
-    await redis.lpush(
-      KEYS.history,
-      JSON.stringify({
-        code: WEDDING_CODE,
-        result: "ALREADY_USED",
-        time: now,
-      })
-    );
-
-    await redis.ltrim(
-      KEYS.history,
-      0,
-      HISTORY_MAX_LENGTH - 1
-    );
-
     return NextResponse.json({
       result: "ALREADY_USED",
     });
   } catch (error) {
-    console.error("Scan error:", error);
+    console.error("SCAN ERROR:", error);
 
     return NextResponse.json(
       {
         result: "ERROR",
         message: "Server error.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
