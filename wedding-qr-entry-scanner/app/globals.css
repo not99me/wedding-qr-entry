@@ -1,0 +1,68 @@
+:root {
+  --ink: #f5f7fa;
+  --ink-dim: #8b93a1;
+  --void: #0a0c10;
+  --surface: #12151b;
+  --surface-raised: #1a1e26;
+  --line: #262b35;
+  --checkpoint-blue: #4f8ef7;
+  --granted: #17c964;
+  --granted-deep: #0e7a3d;
+  --denied: #e5484d;
+  --denied-deep: #8f1f23;
+  --caution: #f5a623;
+  --caution-deep: #8a5a0f;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --font-display: "Space Grotesk", "Arial Black", sans-serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--checkpoint-blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

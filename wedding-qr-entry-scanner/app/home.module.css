@@ -1,0 +1,124 @@
+.wrap {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 24px;
+  gap: 6px;
+}
+
+.mark {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  margin-bottom: 28px;
+}
+
+.markCorner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--checkpoint-blue);
+}
+.markCorner[data-pos="tl"] {
+  top: 0;
+  left: 0;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 6px;
+}
+.markCorner[data-pos="tr"] {
+  top: 0;
+  right: 0;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 6px;
+}
+.markCorner[data-pos="bl"] {
+  bottom: 0;
+  left: 0;
+  border-right: none;
+  border-top: none;
+  border-bottom-left-radius: 6px;
+}
+.markCorner[data-pos="br"] {
+  bottom: 0;
+  right: 0;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 6px;
+}
+.markDot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--checkpoint-blue);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 24px 4px rgba(79, 142, 247, 0.6);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 13px;
+  color: var(--checkpoint-blue);
+  margin: 0 0 10px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(36px, 8vw, 56px);
+  margin: 0 0 12px;
+  letter-spacing: -0.01em;
+}
+
+.sub {
+  color: var(--ink-dim);
+  max-width: 380px;
+  line-height: 1.5;
+  margin: 0 0 40px;
+  font-size: 15px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.primary,
+.secondary {
+  display: block;
+  padding: 18px 24px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  text-decoration: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.primary {
+  background: var(--checkpoint-blue);
+  color: #06111f;
+}
+
+.secondary {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.primary:active,
+.secondary:active {
+  transform: scale(0.97);
+}
