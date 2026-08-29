@@ -1,3 +1,4 @@
+```javascript
 "use client";
 
 import { useState } from "react";
@@ -15,27 +16,21 @@ export default function QRPage() {
     window.print();
   }
 
-  const origin =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : "";
-
   const invitations = Array.from({ length: 250 }, (_, index) => {
     const number = index + 1;
     const code = `WED-${String(number).padStart(3, "0")}`;
 
-    const registrationUrl =
-      `${origin}/register?code=${code}`;
-
+    // IMPORTANT:
+    // The QR contains ONLY the invitation code.
+    // It does NOT open a registration page.
     const qrUrl =
       `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
-        registrationUrl
+        code
       )}`;
 
     return {
       number,
       code,
-      registrationUrl,
       qrUrl,
     };
   });
@@ -68,8 +63,8 @@ export default function QRPage() {
             </button>
 
             <p style={styles.info}>
-              Each QR code opens the registration page
-              for its own invitation.
+              Each QR code is a unique invitation ticket.
+              Guests do not need to register.
             </p>
           </>
         )}
@@ -187,3 +182,4 @@ const styles = {
     margin: 0,
   },
 };
+```
