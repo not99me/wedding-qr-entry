@@ -21,6 +21,17 @@ export async function POST(request) {
       });
     }
 
+    if (
+      !/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|250)$/.test(
+        code
+      )
+    ) {
+      return NextResponse.json({
+        result: "INVALID",
+        message: "Invalid invitation code.",
+      });
+    }
+
     const redis = getRedis();
 
     const key = `${INVITATION_PREFIX}${code}`;
@@ -35,27 +46,18 @@ export async function POST(request) {
       });
     }
 
-    // Guest has not registered yet
-    if (!invitation.registered || !invitation.name?.trim()) {
-      return NextResponse.json({
-        result: "NOT_REGISTERED",
-        name: "",
-        invitation: invitation.number,
-        message: "This guest has not registered yet.",
-      });
-    }
-
-    // This guest already entered
-    if (invitation.checkedIn) {
+    // Already entered
+    if (invitation.checkedIn === true) {
       return NextResponse.json({
         result: "ALREADY_USED",
-        name: invitation.name,
+        name: invitation.name || "",
         invitation: invitation.number,
         checkedInAt: invitation.checkedInAt || null,
+        message: "This invitation has already been used.",
       });
     }
 
-    // Allow the guest in
+    // First scan = allow entry
     invitation.checkedIn = true;
     invitation.checkedInAt = new Date().toISOString();
 
@@ -63,7 +65,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       result: "GRANTED",
-      name: invitation.name,
+      name: invitation.name || "",
       invitation: invitation.number,
       message: "Access granted.",
     });
