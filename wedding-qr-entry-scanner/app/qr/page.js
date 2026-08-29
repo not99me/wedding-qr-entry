@@ -6,12 +6,26 @@ export default function QRPage() {
   const [message, setMessage] = useState("");
   const [showCodes, setShowCodes] = useState(false);
 
+  function generate() {
+    setShowCodes(true);
+    setMessage("✅ 250 QR codes are ready.");
+  }
+
+  function printCodes() {
+    window.print();
+  }
+
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "";
+
   const invitations = Array.from({ length: 250 }, (_, index) => {
     const number = index + 1;
     const code = `WED-${String(number).padStart(3, "0")}`;
 
     const registrationUrl =
-      `${window.location.origin}/register?code=${code}`;
+      `${origin}/register?code=${code}`;
 
     const qrUrl =
       `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
@@ -26,22 +40,13 @@ export default function QRPage() {
     };
   });
 
-  function generate() {
-    setShowCodes(true);
-    setMessage("✅ 250 QR codes are ready.");
-  }
-
-  function printCodes() {
-    window.print();
-  }
-
   return (
     <main style={styles.page}>
       <div style={styles.header}>
         <h1>Wedding QR Codes</h1>
 
         <p>
-          Generate the 250 unique invitation QR codes.
+          Generate the 250 unique wedding invitation QR codes.
         </p>
 
         {!showCodes && (
@@ -53,9 +58,16 @@ export default function QRPage() {
         {message && <p>{message}</p>}
 
         {showCodes && (
-          <button onClick={printCodes} style={styles.button}>
-            Print / Save QR Codes
-          </button>
+          <>
+            <button onClick={printCodes} style={styles.button}>
+              Print / Save QR Codes
+            </button>
+
+            <p>
+              Each QR code opens the registration page
+              for its own invitation.
+            </p>
+          </>
         )}
       </div>
 
@@ -71,7 +83,9 @@ export default function QRPage() {
 
               <h2>{invitation.code}</h2>
 
-              <p>Invitation #{invitation.number}</p>
+              <p>
+                Invitation #{invitation.number}
+              </p>
             </div>
           ))}
         </div>
@@ -108,7 +122,8 @@ const styles = {
     maxWidth: "1200px",
     margin: "0 auto",
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    gridTemplateColumns:
+      "repeat(auto-fill, minmax(220px, 1fr))",
     gap: "20px",
   },
 
@@ -118,6 +133,7 @@ const styles = {
     borderRadius: "15px",
     textAlign: "center",
     boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
+    breakInside: "avoid",
   },
 
   qr: {
