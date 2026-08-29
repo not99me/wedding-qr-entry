@@ -27,8 +27,6 @@ export default function GuardPage() {
   const extractCode = (decodedText) => {
     const value = decodedText.trim();
 
-    // If the QR contains a full registration URL:
-    // https://example.com/register?code=WED-219
     try {
       const url = new URL(value);
       const code = url.searchParams.get("code");
@@ -37,10 +35,9 @@ export default function GuardPage() {
         return code.trim().toUpperCase();
       }
     } catch {
-      // Not a URL — continue below.
+      // QR is not a URL.
     }
 
-    // If the QR contains only WED-219
     return value.toUpperCase();
   };
 
@@ -54,6 +51,7 @@ export default function GuardPage() {
 
       setLastCode(code);
       setGuestName("");
+      setErrorDetail("");
       setState("checking");
 
       await stopScanner();
@@ -79,12 +77,6 @@ export default function GuardPage() {
         } else if (data.result === "ALREADY_USED") {
           setGuestName(data.name || "");
           setState("already_used");
-        } else if (data.result === "NOT_REGISTERED") {
-          setGuestName("");
-          setErrorDetail(
-            "This guest has not registered yet."
-          );
-          setState("not_registered");
         } else if (data.result === "INVALID") {
           setErrorDetail(
             data.message || "Invalid invitation code."
@@ -92,7 +84,7 @@ export default function GuardPage() {
           setState("denied");
         } else {
           setErrorDetail(
-            data.message || "Something went wrong."
+            data.message || "Access denied."
           );
           setState("denied");
         }
@@ -173,7 +165,7 @@ export default function GuardPage() {
           handleDecoded(decodedText);
         },
         () => {
-          // No QR detected in this frame.
+          // No QR detected.
         }
       );
 
@@ -244,20 +236,6 @@ export default function GuardPage() {
         heading="ALREADY USED"
         sub="DO NOT LET IN"
         name={guestName}
-        code={lastCode}
-        onNext={scanNext}
-      />
-    );
-  }
-
-  if (state === "not_registered") {
-    return (
-      <ResultScreen
-        tone="caution"
-        icon="warn"
-        heading="NOT REGISTERED"
-        sub="GUEST MUST REGISTER FIRST"
-        name=""
         code={lastCode}
         onNext={scanNext}
       />
@@ -352,8 +330,8 @@ export default function GuardPage() {
 
       <p className={styles.helpText}>
         {state === "checking"
-          ? "Checking ticket…"
-          : "Point the camera at the guest's ticket"}
+          ? "Checking invitation…"
+          : "Point the camera at the guest's QR code"}
       </p>
     </main>
   );
