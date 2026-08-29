@@ -11,47 +11,61 @@ export async function POST(request) {
 
     const code =
       typeof body?.code === "string"
-        ? body.code.trim()
+        ? body.code.trim().toUpperCase()
         : "";
 
     if (!code) {
       return NextResponse.json({
         result: "INVALID",
+        message: "No invitation code was provided.",
       });
     }
 
     const redis = getRedis();
 
-    const invitation = await redis.get(
-      `${INVITATION_PREFIX}${code}`
-    );
+    const key = `${INVITATION_PREFIX}${code}`;
 
+    const invitation = await redis.get(key);
+
+    // QR code does not exist
     if (!invitation) {
       return NextResponse.json({
         result: "INVALID",
+        message: `Invitation ${code} does not exist.`,
       });
     }
 
+    // Guest has not registered yet
+    if (!invitation.registered || !invitation.name?.trim()) {
+      return NextResponse.json({
+        result: "NOT_REGISTERED",
+        name: "",
+        invitation: invitation.number,
+        message: "This guest has not registered yet.",
+      });
+    }
+
+    // This guest already entered
     if (invitation.checkedIn) {
       return NextResponse.json({
         result: "ALREADY_USED",
         name: invitation.name,
         invitation: invitation.number,
+        checkedInAt: invitation.checkedInAt || null,
       });
     }
 
+    // Allow the guest in
     invitation.checkedIn = true;
     invitation.checkedInAt = new Date().toISOString();
 
-    await redis.set(
-      `${INVITATION_PREFIX}${code}`,
-      invitation
-    );
+    await redis.set(key, invitation);
 
     return NextResponse.json({
       result: "GRANTED",
       name: invitation.name,
       invitation: invitation.number,
+      message: "Access granted.",
     });
   } catch (error) {
     console.error("SCAN ERROR:", error);
@@ -59,7 +73,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         result: "ERROR",
-        message: "Server error.",
+        message: error?.message || "Server error.",
       },
       {
         status: 500,
