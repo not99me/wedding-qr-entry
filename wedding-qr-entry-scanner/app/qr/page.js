@@ -43,9 +43,9 @@ export default function QRPage() {
   return (
     <main style={styles.page}>
       <div style={styles.header}>
-        <h1>Wedding QR Codes</h1>
+        <h1 style={styles.title}>Wedding QR Codes</h1>
 
-        <p>
+        <p style={styles.subtitle}>
           Generate the 250 unique wedding invitation QR codes.
         </p>
 
@@ -55,7 +55,11 @@ export default function QRPage() {
           </button>
         )}
 
-        {message && <p>{message}</p>}
+        {message && (
+          <p style={styles.successMessage}>
+            {message}
+          </p>
+        )}
 
         {showCodes && (
           <>
@@ -63,7 +67,7 @@ export default function QRPage() {
               Print / Save QR Codes
             </button>
 
-            <p>
+            <p style={styles.info}>
               Each QR code opens the registration page
               for its own invitation.
             </p>
@@ -81,9 +85,11 @@ export default function QRPage() {
                 style={styles.qr}
               />
 
-              <h2>{invitation.code}</h2>
+              <h2 style={styles.code}>
+                {invitation.code}
+              </h2>
 
-              <p>
+              <p style={styles.number}>
                 Invitation #{invitation.number}
               </p>
             </div>
@@ -100,6 +106,7 @@ const styles = {
     background: "#f7f4ee",
     padding: "40px 20px",
     fontFamily: "Arial, sans-serif",
+    color: "#171717",
   },
 
   header: {
@@ -107,15 +114,38 @@ const styles = {
     marginBottom: "40px",
   },
 
+  title: {
+    color: "#171717",
+    fontSize: "36px",
+    marginBottom: "10px",
+  },
+
+  subtitle: {
+    color: "#444444",
+    fontSize: "16px",
+    marginBottom: "25px",
+  },
+
   button: {
     padding: "14px 24px",
     border: "none",
     borderRadius: "10px",
     background: "#171717",
-    color: "white",
+    color: "#ffffff",
     fontSize: "16px",
     cursor: "pointer",
     margin: "10px",
+  },
+
+  successMessage: {
+    color: "#0a7a35",
+    fontWeight: "600",
+    marginTop: "15px",
+  },
+
+  info: {
+    color: "#444444",
+    marginTop: "10px",
   },
 
   grid: {
@@ -128,17 +158,32 @@ const styles = {
   },
 
   card: {
-    background: "white",
+    background: "#ffffff",
     padding: "20px",
     borderRadius: "15px",
     textAlign: "center",
     boxShadow: "0 5px 20px rgba(0,0,0,0.08)",
     breakInside: "avoid",
+    color: "#171717",
   },
 
   qr: {
     width: "100%",
     maxWidth: "200px",
     height: "auto",
+    display: "block",
+    margin: "0 auto 15px",
+  },
+
+  code: {
+    color: "#171717",
+    fontSize: "22px",
+    margin: "10px 0 5px",
+  },
+
+  number: {
+    color: "#555555",
+    fontSize: "14px",
+    margin: 0,
   },
 };
