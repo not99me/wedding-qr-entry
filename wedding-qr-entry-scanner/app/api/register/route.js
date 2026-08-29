@@ -3,6 +3,8 @@ import { getRedis } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
+const PREFIX = "wedding:invitation:";
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -17,31 +19,27 @@ export async function POST(request) {
         ? body.name.trim()
         : "";
 
-    if (!code || !name) {
+    if (!code) {
       return NextResponse.json(
         {
           success: false,
-          message: "Please enter the invitation code and name.",
+          message: "Invitation code is missing.",
         },
         { status: 400 }
       );
     }
 
-    const match = code.match(/^WED-(\d{3})$/);
-
-    if (!match) {
+    if (!name) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid invitation code.",
+          message: "Please enter your name.",
         },
         { status: 400 }
       );
     }
 
-    const number = Number(match[1]);
-
-    if (number < 1 || number > 250) {
+    if (!/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|250)$/.test(code)) {
       return NextResponse.json(
         {
           success: false,
@@ -53,11 +51,9 @@ export async function POST(request) {
 
     const redis = getRedis();
 
-    /*
-      Your invitation generator stores the invitations
-      in the "wed:invitation:001" format.
-    */
-    const key = `wed:invitation:${String(number).padStart(3, "0")}`;
+    // IMPORTANT:
+    // This is the exact same key used by /api/invitations
+    const key = `${PREFIX}${code}`;
 
     const invitation = await redis.get(key);
 
@@ -71,7 +67,7 @@ export async function POST(request) {
       );
     }
 
-    if (invitation.registered) {
+    if (invitation.registered === true) {
       return NextResponse.json(
         {
           success: false,
@@ -83,8 +79,6 @@ export async function POST(request) {
 
     const updatedInvitation = {
       ...invitation,
-      number,
-      code,
       name,
       registered: true,
       checkedIn: false,
