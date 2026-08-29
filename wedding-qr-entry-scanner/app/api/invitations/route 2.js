@@ -3,32 +3,61 @@ import { getRedis } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
-const VALID_CODE = "WEDDING-2026-FN";
-const USED_KEY = "wedding:fn:used";
+const INVITATION_PREFIX = "wedding:invitation:";
 
-export async function POST(request) {
+export async function POST() {
   try {
-    const body = await request.json();
-    const code = typeof body?.code === "string" ? body.code.trim() : "";
-
-    if (code !== VALID_CODE) {
-      return NextResponse.json({ result: "INVALID" });
-    }
-
     const redis = getRedis();
 
-    // Only the first scan can add this key.
-    const firstScan = await redis.set(USED_KEY, "true", { nx: true });
+    const invitations = [];
 
-    if (firstScan === "OK") {
-      return NextResponse.json({ result: "GRANTED" });
+    for (let i = 1; i <= 250; i++) {
+      const number = String(i).padStart(3, "0");
+
+      // Unique code for this invitation
+      const code = `WED-${number}`;
+
+      const key = `${INVITATION_PREFIX}${code}`;
+
+      const existing = await redis.get(key);
+
+      // Don't overwrite an invitation that already exists
+      if (!existing) {
+        const invitation = {
+          number: i,
+          code,
+          name: "",
+          registered: false,
+          checkedIn: false,
+          createdAt: new Date().toISOString(),
+        };
+
+        await redis.set(key, invitation);
+
+        invitations.push(invitation);
+      }
     }
 
-    return NextResponse.json({ result: "ALREADY_USED" });
-  } catch {
+    return NextResponse.json({
+      success: true,
+      created: invitations.length,
+      message:
+        invitations.length === 250
+          ? "250 invitations created."
+          : `${invitations.length} new invitations created.`,
+      invitations,
+    });
+  } catch (error) {
+    console.error("INVITATION GENERATION ERROR:", error);
+
     return NextResponse.json(
-      { result: "ERROR", message: "Server error." },
-      { status: 500 }
+      {
+        success: false,
+        message: "Could not create invitations.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
