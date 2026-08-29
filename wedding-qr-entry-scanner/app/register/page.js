@@ -1,165 +1,104 @@
-"use client";
+import { NextResponse } from "next/server";
+import { getRedis } from "@/lib/redis";
 
-import { useState } from "react";
+export const dynamic = "force-dynamic";
 
-export default function RegisterPage() {
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+const PREFIX = "wedding:invitation:";
 
-  async function registerGuest(event) {
-    event.preventDefault();
+export async function POST(request) {
+  try {
+    const body = await request.json();
 
-    const cleanCode = code.trim().toUpperCase();
-    const cleanName = name.trim();
+    const code =
+      typeof body?.code === "string"
+        ? body.code.trim().toUpperCase()
+        : "";
 
-    if (!cleanCode) {
-      setMessage("Please enter your invitation code.");
-      return;
-    }
+    const name =
+      typeof body?.name === "string"
+        ? body.name.trim()
+        : "";
 
-    if (!cleanName) {
-      setMessage("Please enter your name.");
-      return;
-    }
-
-    setLoading(true);
-    setMessage("");
-
-    try {
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    if (!code) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Please enter your invitation code.",
         },
-        body: JSON.stringify({
-          code: cleanCode,
-          name: cleanName,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        setMessage(data.message || "Registration failed.");
-        return;
-      }
-
-      setMessage(`✅ Registered successfully for ${data.name}`);
-      setName("");
-    } catch (error) {
-      console.error(error);
-      setMessage("Could not connect to the server.");
-    } finally {
-      setLoading(false);
+        { status: 400 }
+      );
     }
+
+    if (!name) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Please enter your name.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (name.length > 100) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Name is too long.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const redis = getRedis();
+
+    const key = `${PREFIX}${code}`;
+
+    const invitation = await redis.get(key);
+
+    if (!invitation) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid invitation code.",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (invitation.registered) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "This invitation has already been registered.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const updatedInvitation = {
+      ...invitation,
+      name,
+      registered: true,
+      checkedIn: false,
+    };
+
+    await redis.set(key, updatedInvitation);
+
+    return NextResponse.json({
+      success: true,
+      name,
+      code,
+      message: "Invitation registered successfully.",
+    });
+  } catch (error) {
+    console.error("REGISTRATION ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: error?.message || "Server error.",
+      },
+      { status: 500 }
+    );
   }
-
-  return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        background: "#f7f5f0",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "430px",
-          background: "white",
-          padding: "35px",
-          borderRadius: "18px",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-        }}
-      >
-        <h1
-          style={{
-            textAlign: "center",
-            marginBottom: "10px",
-          }}
-        >
-          Wedding Invitation
-        </h1>
-
-        <p
-          style={{
-            textAlign: "center",
-            color: "#666",
-            marginBottom: "30px",
-          }}
-        >
-          Register your invitation
-        </p>
-
-        <form onSubmit={registerGuest}>
-          <label>Invitation Code</label>
-
-          <input
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            placeholder="Example: WED-001"
-            autoCapitalize="characters"
-            style={inputStyle}
-          />
-
-          <label>Name</label>
-
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Enter your full name"
-            style={inputStyle}
-          />
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={buttonStyle}
-          >
-            {loading ? "Registering..." : "Register"}
-          </button>
-        </form>
-
-        {message && (
-          <p
-            style={{
-              marginTop: "20px",
-              textAlign: "center",
-              fontWeight: "bold",
-            }}
-          >
-            {message}
-          </p>
-        )}
-      </div>
-    </main>
-  );
 }
-
-const inputStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "14px",
-  marginTop: "8px",
-  marginBottom: "18px",
-  border: "1px solid #ccc",
-  borderRadius: "10px",
-  fontSize: "16px",
-};
-
-const buttonStyle = {
-  width: "100%",
-  padding: "14px",
-  border: "none",
-  borderRadius: "10px",
-  background: "#111",
-  color: "white",
-  fontSize: "16px",
-  cursor: "pointer",
-};
