@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function RegisterPage() {
   const [code, setCode] = useState("");
@@ -8,14 +8,20 @@ export default function RegisterPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const invitationCode = params.get("code");
+
+    if (invitationCode) {
+      setCode(invitationCode.toUpperCase());
+    }
+  }, []);
+
   async function handleSubmit(e) {
     e.preventDefault();
 
-    const cleanCode = code.trim().toUpperCase();
-    const cleanName = name.trim();
-
-    if (!cleanCode || !cleanName) {
-      setMessage("Please enter your invitation code and name.");
+    if (!code || !name.trim()) {
+      setMessage("Please enter your name.");
       return;
     }
 
@@ -29,8 +35,8 @@ export default function RegisterPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          code: cleanCode,
-          name: cleanName,
+          code,
+          name: name.trim(),
         }),
       });
 
@@ -54,7 +60,9 @@ export default function RegisterPage() {
   return (
     <main style={styles.page}>
       <div style={styles.card}>
-        <div style={styles.smallTitle}>WEDDING INVITATION</div>
+        <div style={styles.smallTitle}>
+          WEDDING INVITATION
+        </div>
 
         <h1 style={styles.title}>Register</h1>
 
@@ -63,25 +71,27 @@ export default function RegisterPage() {
         </p>
 
         <form onSubmit={handleSubmit}>
-          <label style={styles.label}>Invitation Code</label>
+          <label style={styles.label}>
+            Invitation Code
+          </label>
 
           <input
             type="text"
             value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="WED-001"
-            autoCapitalize="characters"
-            autoComplete="off"
-            style={styles.input}
+            readOnly
+            placeholder="Your invitation code"
+            style={styles.codeInput}
           />
 
-          <label style={styles.label}>Your Name</label>
+          <label style={styles.label}>
+            Your Name
+          </label>
 
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Full name"
+            placeholder="Enter your full name"
             autoComplete="name"
             style={styles.input}
           />
@@ -89,10 +99,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            style={{
-              ...styles.button,
-              opacity: loading ? 0.6 : 1,
-            }}
+            style={styles.button}
           >
             {loading ? "REGISTERING..." : "REGISTER"}
           </button>
@@ -116,8 +123,8 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     padding: "24px",
-    boxSizing: "border-box",
     fontFamily: "Arial, sans-serif",
+    color: "#111111",
   },
 
   card: {
@@ -126,28 +133,30 @@ const styles = {
     background: "#ffffff",
     padding: "40px 30px",
     borderRadius: "20px",
-    boxShadow: "0 15px 50px rgba(0,0,0,0.08)",
-    boxSizing: "border-box",
+    boxShadow: "0 15px 50px rgba(0, 0, 0, 0.08)",
+    color: "#111111",
   },
 
   smallTitle: {
     textAlign: "center",
     fontSize: "12px",
     letterSpacing: "3px",
-    color: "#777",
+    color: "#333333",
     marginBottom: "12px",
+    fontWeight: "600",
   },
 
   title: {
     textAlign: "center",
-    margin: "0",
+    margin: 0,
     fontSize: "36px",
-    fontWeight: "500",
+    fontWeight: "600",
+    color: "#111111",
   },
 
   subtitle: {
     textAlign: "center",
-    color: "#777",
+    color: "#333333",
     lineHeight: "1.5",
     margin: "12px 0 30px",
   },
@@ -155,19 +164,35 @@ const styles = {
   label: {
     display: "block",
     fontSize: "14px",
-    fontWeight: "600",
+    fontWeight: "700",
+    color: "#111111",
     marginBottom: "8px",
     marginTop: "18px",
+  },
+
+  codeInput: {
+    width: "100%",
+    height: "50px",
+    boxSizing: "border-box",
+    border: "1px solid #bdbdbd",
+    borderRadius: "10px",
+    padding: "0 14px",
+    fontSize: "16px",
+    color: "#111111",
+    background: "#eeeeee",
+    fontWeight: "600",
   },
 
   input: {
     width: "100%",
     height: "50px",
     boxSizing: "border-box",
-    border: "1px solid #d6d1c8",
+    border: "1px solid #bdbdbd",
     borderRadius: "10px",
     padding: "0 14px",
     fontSize: "16px",
+    color: "#111111",
+    background: "#ffffff",
     outline: "none",
   },
 
@@ -177,11 +202,10 @@ const styles = {
     marginTop: "26px",
     border: "none",
     borderRadius: "10px",
-    background: "#171717",
+    background: "#111111",
     color: "#ffffff",
     fontSize: "14px",
     fontWeight: "700",
-    letterSpacing: "1px",
     cursor: "pointer",
   },
 
@@ -189,8 +213,9 @@ const styles = {
     marginTop: "20px",
     padding: "14px",
     borderRadius: "10px",
-    background: "#f1f1f1",
+    background: "#eeeeee",
+    color: "#111111",
     textAlign: "center",
-    fontSize: "14px",
+    fontWeight: "600",
   },
 };
