@@ -6,6 +6,7 @@ import styles from "./guard.module.css";
 export default function GuardPage() {
   const [state, setState] = useState("idle");
   const [lastCode, setLastCode] = useState("");
+  const [guestName, setGuestName] = useState("");
   const [errorDetail, setErrorDetail] = useState("");
 
   const scannerRef = useRef(null);
@@ -23,15 +24,36 @@ export default function GuardPage() {
     }
   }, []);
 
+  const extractCode = (decodedText) => {
+    const value = decodedText.trim();
+
+    // If the QR contains a full registration URL:
+    // https://example.com/register?code=WED-219
+    try {
+      const url = new URL(value);
+      const code = url.searchParams.get("code");
+
+      if (code) {
+        return code.trim().toUpperCase();
+      }
+    } catch {
+      // Not a URL — continue below.
+    }
+
+    // If the QR contains only WED-219
+    return value.toUpperCase();
+  };
+
   const handleDecoded = useCallback(
     async (decodedText) => {
       if (busyRef.current) return;
 
       busyRef.current = true;
 
-      const code = decodedText.trim();
+      const code = extractCode(decodedText);
 
       setLastCode(code);
+      setGuestName("");
       setState("checking");
 
       await stopScanner();
@@ -49,16 +71,38 @@ export default function GuardPage() {
 
         const data = await response.json();
 
+        console.log("SCAN RESULT:", data);
+
         if (data.result === "GRANTED") {
+          setGuestName(data.name || "");
           setState("granted");
         } else if (data.result === "ALREADY_USED") {
+          setGuestName(data.name || "");
           setState("already_used");
+        } else if (data.result === "NOT_REGISTERED") {
+          setGuestName("");
+          setErrorDetail(
+            "This guest has not registered yet."
+          );
+          setState("not_registered");
+        } else if (data.result === "INVALID") {
+          setErrorDetail(
+            data.message || "Invalid invitation code."
+          );
+          setState("denied");
         } else {
+          setErrorDetail(
+            data.message || "Something went wrong."
+          );
           setState("denied");
         }
       } catch (error) {
         console.error("Scan error:", error);
-        setErrorDetail("Could not reach the server. Check your connection.");
+
+        setErrorDetail(
+          "Could not reach the server. Check your connection."
+        );
+
         setState("denied");
       }
     },
@@ -69,14 +113,20 @@ export default function GuardPage() {
     setState("idle");
     setErrorDetail("");
     setLastCode("");
+    setGuestName("");
 
     try {
-      const { Html5Qrcode } = await import("html5-qrcode");
+      const { Html5Qrcode } = await import(
+        "html5-qrcode"
+      );
 
-      const element = document.getElementById("qr-reader");
+      const element =
+        document.getElementById("qr-reader");
 
       if (!element) {
-        throw new Error("QR scanner element was not found.");
+        throw new Error(
+          "QR scanner element was not found."
+        );
       }
 
       if (scannerRef.current) {
@@ -101,9 +151,16 @@ export default function GuardPage() {
         },
         {
           fps: 10,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
+
+          qrbox: (
+            viewfinderWidth,
+            viewfinderHeight
+          ) => {
             const size = Math.floor(
-              Math.min(viewfinderWidth, viewfinderHeight) * 0.7
+              Math.min(
+                viewfinderWidth,
+                viewfinderHeight
+              ) * 0.7
             );
 
             return {
@@ -126,7 +183,8 @@ export default function GuardPage() {
       console.error("Camera error:", error);
 
       setErrorDetail(
-        error?.message || "Camera access was blocked or unavailable."
+        error?.message ||
+          "Camera access was blocked or unavailable."
       );
 
       setState("camera_error");
@@ -151,9 +209,15 @@ export default function GuardPage() {
 
   const scanNext = async () => {
     busyRef.current = false;
-    setState("idle");
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    setState("idle");
+    setLastCode("");
+    setGuestName("");
+    setErrorDetail("");
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, 100)
+    );
 
     startScanner();
   };
@@ -165,6 +229,7 @@ export default function GuardPage() {
         icon="check"
         heading="ACCESS GRANTED"
         sub="LET GUEST IN"
+        name={guestName}
         code={lastCode}
         onNext={scanNext}
       />
@@ -178,6 +243,21 @@ export default function GuardPage() {
         icon="warn"
         heading="ALREADY USED"
         sub="DO NOT LET IN"
+        name={guestName}
+        code={lastCode}
+        onNext={scanNext}
+      />
+    );
+  }
+
+  if (state === "not_registered") {
+    return (
+      <ResultScreen
+        tone="caution"
+        icon="warn"
+        heading="NOT REGISTERED"
+        sub="GUEST MUST REGISTER FIRST"
+        name=""
         code={lastCode}
         onNext={scanNext}
       />
@@ -191,10 +271,10 @@ export default function GuardPage() {
         icon="cross"
         heading="ACCESS DENIED"
         sub={
-          errorDetail
-            ? errorDetail
-            : "INVALID CODE — DO NOT LET IN"
+          errorDetail ||
+          "INVALID CODE — DO NOT LET IN"
         }
+        name=""
         code={lastCode}
         onNext={scanNext}
       />
@@ -204,15 +284,17 @@ export default function GuardPage() {
   if (state === "camera_error") {
     return (
       <main className={styles.wrap}>
-        <p className={styles.eyebrow}>Wedding entry</p>
+        <p className={styles.eyebrow}>
+          Wedding entry
+        </p>
 
         <h1 className={styles.title}>
           Camera access required
         </h1>
 
         <p className={styles.helpText}>
-          Please allow camera access in your browser settings,
-          then try again.
+          Please allow camera access in your browser
+          settings, then try again.
         </p>
 
         {errorDetail && (
@@ -282,6 +364,7 @@ function ResultScreen({
   icon,
   heading,
   sub,
+  name,
   code,
   onNext,
 }) {
@@ -300,6 +383,12 @@ function ResultScreen({
       <h1 className={styles.resultHeading}>
         {heading}
       </h1>
+
+      {name && (
+        <div className={styles.guestName}>
+          {name}
+        </div>
+      )}
 
       <p className={styles.resultSub}>
         {sub}
