@@ -1,3 +1,4 @@
+```javascript
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
 
@@ -14,26 +15,11 @@ export async function POST(request) {
         ? body.code.trim().toUpperCase()
         : "";
 
-    const name =
-      typeof body?.name === "string"
-        ? body.name.trim()
-        : "";
-
     if (!code) {
       return NextResponse.json(
         {
           success: false,
           message: "Invitation code is missing.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!name) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Please enter your name.",
         },
         { status: 400 }
       );
@@ -50,9 +36,6 @@ export async function POST(request) {
     }
 
     const redis = getRedis();
-
-    // IMPORTANT:
-    // This is the exact same key used by /api/invitations
     const key = `${PREFIX}${code}`;
 
     const invitation = await redis.get(key);
@@ -61,40 +44,19 @@ export async function POST(request) {
       return NextResponse.json(
         {
           success: false,
-          message: `Invitation ${code} does not exist in the database.`,
+          message: `Invitation ${code} does not exist.`,
         },
         { status: 404 }
       );
     }
 
-    if (invitation.registered === true) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "This invitation has already been registered.",
-        },
-        { status: 409 }
-      );
-    }
-
-    const updatedInvitation = {
-      ...invitation,
-      name,
-      registered: true,
-      checkedIn: false,
-    };
-
-    await redis.set(key, updatedInvitation);
-
     return NextResponse.json({
       success: true,
       code,
-      name,
-      invitation: updatedInvitation,
-      message: "Registration successful.",
+      invitation,
     });
   } catch (error) {
-    console.error("REGISTER ERROR:", error);
+    console.error("INVITATION ERROR:", error);
 
     return NextResponse.json(
       {
@@ -105,3 +67,4 @@ export async function POST(request) {
     );
   }
 }
+```
