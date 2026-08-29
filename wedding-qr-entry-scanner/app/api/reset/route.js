@@ -3,31 +3,38 @@ import { getRedis } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
-const VALID_CODE = "WEDDING-2026-FN";
-const USED_KEY = "wedding:fn:used";
+const PREFIX = "wedding:invitation:";
 
-export async function POST(request) {
+export async function POST() {
   try {
-    const body = await request.json();
-    const code = typeof body?.code === "string" ? body.code.trim() : "";
-
-    if (code !== VALID_CODE) {
-      return NextResponse.json({ result: "INVALID" });
-    }
-
     const redis = getRedis();
 
-    // Only the first scan can add this key.
-    const firstScan = await redis.set(USED_KEY, "true", { nx: true });
+    await redis.ping();
 
-    if (firstScan === "OK") {
-      return NextResponse.json({ result: "GRANTED" });
+    for (let i = 1; i <= 250; i++) {
+      const code = `WED-${String(i).padStart(3, "0")}`;
+
+      await redis.set(`${PREFIX}${code}`, {
+        number: i,
+        code,
+        name: "",
+        registered: false,
+        checkedIn: false,
+      });
     }
 
-    return NextResponse.json({ result: "ALREADY_USED" });
-  } catch {
+    return NextResponse.json({
+      success: true,
+      message: "All 250 invitations reset successfully.",
+    });
+  } catch (error) {
+    console.error("RESET ERROR:", error);
+
     return NextResponse.json(
-      { result: "ERROR", message: "Server error." },
+      {
+        success: false,
+        message: error?.message || "Reset failed.",
+      },
       { status: 500 }
     );
   }
