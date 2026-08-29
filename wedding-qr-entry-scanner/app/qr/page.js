@@ -1,4 +1,3 @@
-```javascript
 "use client";
 
 import { useState } from "react";
@@ -9,7 +8,7 @@ export default function QRPage() {
 
   function generate() {
     setShowCodes(true);
-    setMessage("✅ 250 QR codes are ready.");
+    setMessage("250 QR codes are ready.");
   }
 
   function printCodes() {
@@ -20,9 +19,8 @@ export default function QRPage() {
     const number = index + 1;
     const code = `WED-${String(number).padStart(3, "0")}`;
 
-    // IMPORTANT:
-    // The QR contains ONLY the invitation code.
-    // It does NOT open a registration page.
+    // The QR code contains ONLY the invitation code.
+    // It does NOT contain a website URL.
     const qrUrl =
       `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
         code
@@ -182,4 +180,3 @@ const styles = {
     margin: 0,
   },
 };
-```
