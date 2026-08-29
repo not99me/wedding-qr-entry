@@ -11,42 +11,35 @@ export async function POST() {
 
     await redis.ping();
 
-    let created = 0;
+    let reset = 0;
 
     for (let i = 1; i <= 250; i++) {
       const code = `WED-${String(i).padStart(3, "0")}`;
       const key = `${PREFIX}${code}`;
 
-      const existing = await redis.get(key);
+      await redis.set(key, {
+        number: i,
+        code,
+        name: "",
+        registered: false,
+        checkedIn: false,
+      });
 
-      if (!existing) {
-        await redis.set(key, {
-          number: i,
-          code,
-          name: "",
-          registered: false,
-          checkedIn: false,
-        });
-
-        created++;
-      }
+      reset++;
     }
 
     return NextResponse.json({
       success: true,
-      created,
-      message:
-        created === 0
-          ? "All 250 invitations already exist."
-          : `${created} invitations created.`,
+      reset,
+      message: "All 250 invitations have been reset.",
     });
   } catch (error) {
-    console.error("INVITATION ERROR:", error);
+    console.error("INVITATION RESET ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message: error?.message || "Unknown server error",
+        message: error?.message || "Could not reset invitations.",
       },
       { status: 500 }
     );
