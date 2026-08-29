@@ -4,8 +4,6 @@ export const dynamic = "force-dynamic";
 
 const VALID_CODE = "WEDDING-2026-FN";
 
-let used = false;
-
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -15,24 +13,14 @@ export async function POST(request) {
         ? body.code.trim()
         : "";
 
-    console.log("QR CODE:", JSON.stringify(code));
-
-    if (code !== VALID_CODE) {
-      return NextResponse.json({
-        result: "INVALID",
-      });
-    }
-
-    if (!used) {
-      used = true;
-
+    if (code === VALID_CODE) {
       return NextResponse.json({
         result: "GRANTED",
       });
     }
 
     return NextResponse.json({
-      result: "ALREADY_USED",
+      result: "INVALID",
     });
   } catch (error) {
     console.error("SCAN ERROR:", error);
