@@ -19,9 +19,9 @@ export async function POST(request) {
       });
     }
 
-    // Accept WED-001 through WED-260
+    // Accept WED-001 through WED-250
     if (
-      !/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9]|260)$/.test(
+      !/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|250)$/.test(
         code
       )
     ) {
@@ -33,7 +33,6 @@ export async function POST(request) {
 
     const redis = getRedis();
 
-    // Check whether this invitation exists
     const exists = await redis.sismember(KEYS.validCodes, code);
 
     if (!exists) {
@@ -43,7 +42,6 @@ export async function POST(request) {
       });
     }
 
-    // Check whether it was already used
     const alreadyUsed = await redis.sismember(KEYS.usedCodes, code);
 
     if (alreadyUsed) {
@@ -57,7 +55,6 @@ export async function POST(request) {
       });
     }
 
-    // Mark invitation as used
     await Promise.all([
       redis.sadd(KEYS.usedCodes, code),
       redis.hset(KEYS.usedAt, {
