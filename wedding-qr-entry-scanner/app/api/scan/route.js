@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
-import { getRedis } from "@/lib/redis";
+import { getRedis, KEYS } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
-
-const INVITATION_PREFIX = "wedding:invitation:";
 
 export async function POST(request) {
   try {
@@ -21,11 +19,12 @@ export async function POST(request) {
       });
     }
 
-  if (
-  !/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9]|260)$/.test(
-    code
-  )
-) {
+    // Accept WED-001 through WED-260
+    if (
+      !/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9]|260)$/.test(
+        code
+      )
+    ) {
       return NextResponse.json({
         result: "INVALID",
         message: "Invalid invitation code.",
@@ -34,39 +33,41 @@ export async function POST(request) {
 
     const redis = getRedis();
 
-    const key = `${INVITATION_PREFIX}${code}`;
+    // Check whether this invitation exists
+    const exists = await redis.sismember(KEYS.validCodes, code);
 
-    const invitation = await redis.get(key);
-
-    // QR code does not exist
-    if (!invitation) {
+    if (!exists) {
       return NextResponse.json({
         result: "INVALID",
         message: `Invitation ${code} does not exist.`,
       });
     }
 
-    // Already entered
-    if (invitation.checkedIn === true) {
+    // Check whether it was already used
+    const alreadyUsed = await redis.sismember(KEYS.usedCodes, code);
+
+    if (alreadyUsed) {
+      const checkedInAt = await redis.hget(KEYS.usedAt, code);
+
       return NextResponse.json({
         result: "ALREADY_USED",
-        name: invitation.name || "",
-        invitation: invitation.number,
-        checkedInAt: invitation.checkedInAt || null,
+        invitation: code,
+        checkedInAt: checkedInAt || null,
         message: "This invitation has already been used.",
       });
     }
 
-    // First scan = allow entry
-    invitation.checkedIn = true;
-    invitation.checkedInAt = new Date().toISOString();
-
-    await redis.set(key, invitation);
+    // Mark invitation as used
+    await Promise.all([
+      redis.sadd(KEYS.usedCodes, code),
+      redis.hset(KEYS.usedAt, {
+        [code]: new Date().toISOString(),
+      }),
+    ]);
 
     return NextResponse.json({
       result: "GRANTED",
-      name: invitation.name || "",
-      invitation: invitation.number,
+      invitation: code,
       message: "Access granted.",
     });
   } catch (error) {
