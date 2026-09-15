@@ -6,22 +6,42 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function generateInvitations() {
+  async function addNewInvitations() {
     setLoading(true);
     setMessage("");
 
     try {
-      const response = await fetch("/api/invitations", {
-        method: "POST",
-      });
+      let added = 0;
+      let existing = 0;
 
-      const data = await response.json();
+      // Add ONLY WED-251 through WED-260
+      for (let i = 251; i <= 260; i++) {
+        const code = `WED-${String(i).padStart(3, "0")}`;
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Something went wrong.");
+        const response = await fetch("/api/admin", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ code }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `Could not add ${code}.`);
+        }
+
+        if (data.added) {
+          added++;
+        } else {
+          existing++;
+        }
       }
 
-      setMessage(`✅ ${data.created} invitations created successfully.`);
+      setMessage(
+        `✅ Done! ${added} new invitations added. ${existing} already existed.`
+      );
     } catch (error) {
       setMessage(`❌ ${error.message}`);
     } finally {
@@ -44,10 +64,14 @@ export default function AdminPage() {
     >
       <h1>Wedding Admin</h1>
 
-      <p>Generate the 250 wedding invitations.</p>
+      <p>
+        Add the 10 new wedding invitations:
+        <br />
+        <strong>WED-251 to WED-260</strong>
+      </p>
 
       <button
-        onClick={generateInvitations}
+        onClick={addNewInvitations}
         disabled={loading}
         style={{
           padding: "15px 25px",
@@ -55,11 +79,18 @@ export default function AdminPage() {
           cursor: loading ? "not-allowed" : "pointer",
         }}
       >
-        {loading ? "Creating..." : "Generate 250 Invitations"}
+        {loading
+          ? "Adding Invitations..."
+          : "Add 10 New Invitations"}
       </button>
 
       {message && (
-        <p style={{ marginTop: 25 }}>
+        <p
+          style={{
+            marginTop: 25,
+            fontSize: 16,
+          }}
+        >
           {message}
         </p>
       )}
