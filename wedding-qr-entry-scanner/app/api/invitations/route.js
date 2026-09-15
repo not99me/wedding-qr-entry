@@ -11,11 +11,20 @@ export async function POST() {
 
     await redis.ping();
 
-    let reset = 0;
+    let created = 0;
+    let existing = 0;
 
-    for (let i = 1; i <= 250; i++) {
+    // Only create the NEW invitations: 251–260
+    for (let i = 251; i <= 260; i++) {
       const code = `WED-${String(i).padStart(3, "0")}`;
       const key = `${PREFIX}${code}`;
+
+      const alreadyExists = await redis.get(key);
+
+      if (alreadyExists) {
+        existing++;
+        continue;
+      }
 
       await redis.set(key, {
         number: i,
@@ -25,21 +34,23 @@ export async function POST() {
         checkedIn: false,
       });
 
-      reset++;
+      created++;
     }
 
     return NextResponse.json({
       success: true,
-      reset,
-      message: "All 250 invitations have been reset.",
+      created,
+      existing,
+      total: created + existing,
+      message: `New invitations 251–260 processed.`,
     });
   } catch (error) {
-    console.error("INVITATION RESET ERROR:", error);
+    console.error("INVITATION CREATE ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message: error?.message || "Could not reset invitations.",
+        message: error?.message || "Could not create invitations.",
       },
       { status: 500 }
     );
@@ -54,7 +65,8 @@ export async function GET() {
 
     const invitations = [];
 
-    for (let i = 1; i <= 250; i++) {
+    // Check all 260 invitations
+    for (let i = 1; i <= 260; i++) {
       const code = `WED-${String(i).padStart(3, "0")}`;
       const key = `${PREFIX}${code}`;
 
