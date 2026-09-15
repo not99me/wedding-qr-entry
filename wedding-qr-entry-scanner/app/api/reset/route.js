@@ -11,7 +11,7 @@ export async function POST() {
 
     await redis.ping();
 
-    for (let i = 1; i <= 250; i++) {
+    for (let i = 1; i <= 260; i++) {
       const code = `WED-${String(i).padStart(3, "0")}`;
 
       await redis.set(`${PREFIX}${code}`, {
@@ -25,7 +25,7 @@ export async function POST() {
 
     return NextResponse.json({
       success: true,
-      message: "All 250 invitations reset successfully.",
+      message: "All 260 invitations reset successfully.",
     });
   } catch (error) {
     console.error("RESET ERROR:", error);
