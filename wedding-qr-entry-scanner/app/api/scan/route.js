@@ -21,11 +21,11 @@ export async function POST(request) {
       });
     }
 
-    if (
-      !/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|250)$/.test(
-        code
-      )
-    ) {
+  if (
+  !/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9]|260)$/.test(
+    code
+  )
+) {
       return NextResponse.json({
         result: "INVALID",
         message: "Invalid invitation code.",
