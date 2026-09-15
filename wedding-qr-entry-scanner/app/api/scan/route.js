@@ -19,9 +19,9 @@ export async function POST(request) {
       });
     }
 
-    // Accept WED-001 through WED-250
+    // WED-001 through WED-260
     if (
-      !/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|250)$/.test(
+      !/^WED-(00[1-9]|0[1-9][0-9]|1[0-9][0-9]|2[0-5][0-9]|260)$/.test(
         code
       )
     ) {
@@ -33,6 +33,7 @@ export async function POST(request) {
 
     const redis = getRedis();
 
+    // Use the SAME validCodes database as the original 250
     const exists = await redis.sismember(KEYS.validCodes, code);
 
     if (!exists) {
@@ -42,6 +43,7 @@ export async function POST(request) {
       });
     }
 
+    // Use the SAME usedCodes database as the original 250
     const alreadyUsed = await redis.sismember(KEYS.usedCodes, code);
 
     if (alreadyUsed) {
@@ -55,12 +57,11 @@ export async function POST(request) {
       });
     }
 
-    await Promise.all([
-      redis.sadd(KEYS.usedCodes, code),
-      redis.hset(KEYS.usedAt, {
-        [code]: new Date().toISOString(),
-      }),
-    ]);
+    // Mark as used
+    await redis.sadd(KEYS.usedCodes, code);
+    await redis.hset(KEYS.usedAt, {
+      [code]: new Date().toISOString(),
+    });
 
     return NextResponse.json({
       result: "GRANTED",
@@ -75,9 +76,7 @@ export async function POST(request) {
         result: "ERROR",
         message: error?.message || "Server error.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
