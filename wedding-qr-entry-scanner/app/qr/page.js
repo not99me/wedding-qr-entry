@@ -8,19 +8,17 @@ export default function QRPage() {
 
   function generate() {
     setShowCodes(true);
-    setMessage("250 QR codes are ready.");
+    setMessage("260 QR codes are ready.");
   }
 
   function printCodes() {
     window.print();
   }
 
-  const invitations = Array.from({ length: 250 }, (_, index) => {
+  const invitations = Array.from({ length: 260 }, (_, index) => {
     const number = index + 1;
     const code = `WED-${String(number).padStart(3, "0")}`;
 
-    // The QR code contains ONLY the invitation code.
-    // It does NOT contain a website URL.
     const qrUrl =
       `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
         code
@@ -39,12 +37,12 @@ export default function QRPage() {
         <h1 style={styles.title}>Wedding QR Codes</h1>
 
         <p style={styles.subtitle}>
-          Generate the 250 unique wedding invitation QR codes.
+          Generate the 260 unique wedding invitation QR codes.
         </p>
 
         {!showCodes && (
           <button onClick={generate} style={styles.button}>
-            Generate 250 QR Codes
+            Generate 260 QR Codes
           </button>
         )}
 
