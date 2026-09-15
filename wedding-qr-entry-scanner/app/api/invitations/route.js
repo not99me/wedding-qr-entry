@@ -1,94 +1,47 @@
 import { NextResponse } from "next/server";
-import { getRedis } from "@/lib/redis";
+import { getRedis, KEYS } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
-const PREFIX = "wedding:invitation:";
-
-export async function POST() {
+export async function POST(request) {
   try {
     const redis = getRedis();
 
-    await redis.ping();
+    // Add ONLY the new codes.
+    // This does NOT modify or reset WED-001 through WED-250.
+    const newCodes = [];
 
-    let created = 0;
+    for (let i = 251; i <= 260; i++) {
+      newCodes.push(`WED-${String(i).padStart(3, "0")}`);
+    }
+
+    let added = 0;
     let existing = 0;
 
-    // Only create the NEW invitations: 251–260
-    for (let i = 251; i <= 260; i++) {
-      const code = `WED-${String(i).padStart(3, "0")}`;
-      const key = `${PREFIX}${code}`;
+    for (const code of newCodes) {
+      const result = await redis.sadd(KEYS.validCodes, code);
 
-      const alreadyExists = await redis.get(key);
-
-      if (alreadyExists) {
+      if (result === 1) {
+        added++;
+      } else {
         existing++;
-        continue;
       }
-
-      await redis.set(key, {
-        number: i,
-        code,
-        name: "",
-        registered: false,
-        checkedIn: false,
-      });
-
-      created++;
     }
 
     return NextResponse.json({
       success: true,
-      created,
+      added,
       existing,
-      total: created + existing,
-      message: `New invitations 251–260 processed.`,
+      total: newCodes.length,
+      message: "WED-251 through WED-260 added successfully.",
     });
   } catch (error) {
-    console.error("INVITATION CREATE ERROR:", error);
+    console.error("ADD NEW INVITATIONS ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message: error?.message || "Could not create invitations.",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET() {
-  try {
-    const redis = getRedis();
-
-    await redis.ping();
-
-    const invitations = [];
-
-    // Check all 260 invitations
-    for (let i = 1; i <= 260; i++) {
-      const code = `WED-${String(i).padStart(3, "0")}`;
-      const key = `${PREFIX}${code}`;
-
-      const invitation = await redis.get(key);
-
-      if (invitation) {
-        invitations.push(invitation);
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      total: invitations.length,
-      invitations,
-    });
-  } catch (error) {
-    console.error("INVITATION CHECK ERROR:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: error?.message || "Could not check invitations.",
+        message: error?.message || "Could not add new invitations.",
       },
       { status: 500 }
     );
